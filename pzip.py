@@ -92,7 +92,7 @@ def compress(t):
 
         try:
 
-            open(filename,"r")
+            open(filename, "r")
 
             with ZipFile(filename + ".zip", 'w') as file_zip:
                 file_zip.write(filename)
