@@ -19,9 +19,11 @@ from multiprocessing import Process, Value, Queue, Semaphore
 __author__ = "André Nunes 43304, Miguel Almeida 48314, Tiago Martins 48299"
 
 completed_files = Value('i', 0)
-files_queue = Queue()
+queue = Queue()
 sem = Semaphore(1)
-a = True
+a = Value('b', False)
+queue_size = Value('i', 0)
+n = Value('i', 0)
 
 
 def choose_files():
@@ -75,39 +77,33 @@ def fill_queue_with_files(files):
 
 
 def compress(t):
-    global a
-
-    while not files_queue.empty():
-
+    while queue.qsize() != 0:
         sem.acquire()
 
-        if not files_queue.empty() and a:
+        lt = queue.get()
+        print 'lt', lt
+        filename = lt.pop(0)
+        print filename
+        if len(lt) != 0:
+            queue.put(lt)
 
-            filename = files_queue.get()
-            sem.release()
+        if not os.path.isfile(filename) and t:
+            print "Erro filenotfound"
+            print "aqui t true"
+            queue.get()
+            break
 
-        else:
-            a = False
-            pass
+        elif not t:
+            print 'aqui t false'
+            
 
-        try:
+        sem.release()
 
-            open(filename, "r")
+        with ZipFile(filename + ".zip", 'w') as file_zip:
+            file_zip.write(filename)
 
-            with ZipFile(filename + ".zip", 'w') as file_zip:
-                file_zip.write(filename)
-
-            print "File:", filename, "PID:", os.getpid()
+            print "DONE", os.getpid()
             completed_files.value += 1
-
-        except IOError as e:
-            if t:
-                print 'ficheiro nao existe', e
-                a = False
-                while not files_queue.empty():
-                    files_queue.get()
-            else:
-                pass
 
 
 def decompress():
@@ -117,7 +113,7 @@ def decompress():
 def create_default_processes_decompress(n, l_p, t, f):
     # creates all processes and adds them to the list
     for _ in xrange(n):
-        p = Process(target=f, args=(t,))
+        p = Process(target=f, args=(t,)).start()
         l_p.append(p)
 
 
@@ -148,19 +144,21 @@ if __name__ == '__main__':
 
     # fill the shared queue with files
     # fill_queue_with_files(filesnames)
-    for f in filesnames:
-        files_queue.put(f)
+    queue.put(filesnames)
+    print queue.qsize()
+
+    queue_size.value = len(filesnames)
 
     if args.c:
             create_default_processes_decompress(args.p, l_p, args.t, compress)
     if args.d:
             create_default_processes_decompress(args.p, l_p, args.t, decompress)
 
-    for p in l_p:
-        p.start()
+    #for p in l_p:
+     #   p.start()
 
-    for p in l_p:
-        p.join()
+    #for p in l_p:
+#        p.join()
 
     print "python pzip.py", args, "filesnames", filesnames
     print 'Compress / Decompress Files:', completed_files.value
