@@ -1,164 +1,216 @@
-#!/usr/bin/env python
+#!/bin/sh
 # -*- coding: utf-8 -*-
 
-#############################
-#    1º Trabalho de Grupo   #
-#  Sistemas Operativos LTI  #
-# ------------------------- #
-#       Grupo sop002        #
-#    Andre Nunes 43304      #
-#    Miguel Almeida 48314   #
-#    Tiago Martins 48299    #
-#############################
+##############################
+#           Autores:         #
+#   André Nunes, NºXXXXX     #
+#   Miguel Almeida, Nº48314  #
+#   Tiago Martins, Nº48299   #
+##############################
 
-import os
-from zipfile import ZipFile
-import argparse
+# Projeto Sistemas Operativos 2017/2018
+# Professores: Dulce Domingos e Pedro Ferreira
+
+# Versão com Processos
+
+from zipfile import ZipFile as Zip
 from multiprocessing import Process, Value, Queue, Semaphore
+import argparse
+import sys
+import os
 
-__author__ = "André Nunes 43304, Miguel Almeida 48314, Tiago Martins 48299"
+# Sintaxe do comando:
+# >python pzip -c|-d [-p n] [-t] {ficheiros}
 
-completed_files = Value('i', 0)
-queue = Queue()
-sem = Semaphore(1)
-a = Value('b', False)
-queue_size = Value('i', 0)
-n = Value('i', 0)
+# Comandos possíveis:
+
+# >python pzip -c -p n -t {ficheiros}
+# >python pzip -c -p n {ficheiros}
+# >python pzip -c -t {ficheiros}
+# >python pzip -c {ficheiros}
+# >python pzip -d -p n -t {ficheiros}
+# >python pzip -d -p n {ficheiros}
+# >python pzip -d -t {ficheiros}
+# >python pzip -d {ficheiros}
+# >python pzip -c -p n -t
+# >python pzip -c -p n
+# >python pzip -c -t
+# >python pzip -c
+# >python pzip -d -p n -t
+# >python pzip -d -p n
+# >python pzip -d -t
+# >python pzip -d
 
 
-def choose_files():
-    """
-    Reads the files to compress ou uncompress from stdin
+def main():
 
-    Return: a list of name files
-    """
-    filename = raw_input("Name of file: (--q to exit)\n")
-
-    while filename != "--q" or len(filesnames) == 0:
-        if filename != '':
-            filesnames.append(filename)
-        filename = raw_input("Name of file: (--q to exit)\n")
-
-
-def argument_parser():
-    """
-    Parser to read the arguments from command line
-
-    Argumments avalilable:
-    usage: pzip.py [-h] [-c | -d] [-p {0,1,2,3,4,5,6,7,8,9}] [-t]
-               [files [files ...]]
-
-    positional arguments:
-        files                       files to Compress/Decompress
-
-    optional arguments:
-        -h, --help                  show this help message and exit
-        -c                          compress files
-        -d                          decompress files
-        -p {0,1,2,3,4,5,6,7,8,9}    number os process
-        -t                          finish when file not found
-    """
     parser = argparse.ArgumentParser()
 
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-c", help="compress files", action="store_true")
-    group.add_argument("-d", help="decompress files", action="store_true")
 
-    parser.add_argument("-p", type=int, choices=xrange(1, 10), default=1, help="number os process")
-    parser.add_argument("-t", help="finish when file not found", action="store_true")
-    parser.add_argument("files", nargs='*', help="files to Compress/Decompress")
+    group.add_argument("-c", help="Comprime um ficheiro", action="store_true")
+    group.add_argument("-d", help="Descomprime um ficheiro", action="store_true")
 
-    return parser.parse_args()
+    parser.add_argument("-p", type=int, help="Ativa paralelização", choices=range(10))
+    parser.add_argument("-t", help="Ativa qq coisa", action="store_true")
+    parser.add_argument("files", help="Lista de ficheiro", nargs="*")
 
+    args = parser.parse_args()
+    filenames = []
 
-def fill_queue_with_files(files):
-    for f in files:
-        files_queue.put(f)
+    procslist = []
 
+    if not args.files:
+        filename = raw_input("File Name\n")
 
-def compress(t):
-    while queue.qsize() != 0:
-        sem.acquire()
+        while len(filename) != 0:
+            filenames.append(filename)
+            filename=raw_input("File Name\n")
 
-        lt = queue.get()
-        print 'lt', lt
-        filename = lt.pop(0)
-        print filename
-        if len(lt) != 0:
-            queue.put(lt)
-
-        if not os.path.isfile(filename) and t:
-            print "Erro filenotfound"
-            print "aqui t true"
-            queue.get()
-            break
-
-        elif not t:
-            print 'aqui t false'
-            
-
-        sem.release()
-
-        with ZipFile(filename + ".zip", 'w') as file_zip:
-            file_zip.write(filename)
-
-            print "DONE", os.getpid()
-            completed_files.value += 1
-
-
-def decompress():
-    pass
-
-
-def create_default_processes_decompress(n, l_p, t, f):
-    # creates all processes and adds them to the list
-    for _ in xrange(n):
-        p = Process(target=f, args=(t,)).start()
-        l_p.append(p)
-
-
-if __name__ == '__main__':
-
-    # Combinacoes possivies
-    # -c -p n -t {files}
-    # -c -p n {files}
-    # -c -t {files}
-    # -c {files}
-    # -d -p n -t {files}
-    # -d -p n {files}
-    # -d -t {files}
-    # -d {files}
-    # print "python pzip.py", args, "filesnames", filesnames
-
-    args = argument_parser()
-    filesnames = []
-    l_p = []
-
-    if not args.c and not args.d:
-        print "Error: choose an option [-c | -d]"
     else:
-        if args.files == []:
-            choose_files()
-        else:
-            filesnames = args.files
 
-    # fill the shared queue with files
-    # fill_queue_with_files(filesnames)
-    queue.put(filesnames)
-    print queue.qsize()
+        filenames = args.files
 
-    queue_size.value = len(filesnames)
+    if not args.c or args.d:
+        filename = raw_input("Option (-c/-d)?\n")
+
+        while len(filename) != 0:
+            filenames.append(filename)
+            filename=raw_input("File Name\n")
+
+    else:
+
+        filenames = args.files
+
+    print args
+    print filenames
+    print args.p
 
     if args.c:
-            create_default_processes_decompress(args.p, l_p, args.t, compress)
+
+        if args.p and args.t:
+
+            arg = True
+
+            for _ in range(args.p):
+                proc = Process(target=compress(filename=args.files, files=args.files),
+                               args=(arg,))
+                procslist.append(proc)
+
+            print procslist
+
+            print ">python pzip -c -p n -t {ficheiros}"
+
+        elif args.p and not args.t:
+
+            arg = True
+
+            for _ in range(args.p):
+                proc = Process(target=compress(filename=args.files, files=args.files),
+                               args=(arg,))
+                procslist.append(proc)
+
+            print procslist
+
+            print ">python pzip -c -p n {ficheiros}"
+
+        elif args.t and not args.p:
+
+            print ">python pzip -c -t {ficheiros}"
+
+        else:
+
+            print ">python pzip -c {ficheiros}"
+
     if args.d:
-            create_default_processes_decompress(args.p, l_p, args.t, decompress)
 
-    #for p in l_p:
-     #   p.start()
+        if args.p and args.t:
 
-    #for p in l_p:
-#        p.join()
+            arg = True
 
-    print "python pzip.py", args, "filesnames", filesnames
-    print 'Compress / Decompress Files:', completed_files.value
+            create_processes_compress(args.p, procslist, arg)
+            print ">python pzip -d -p n -t {ficheiros}"
+
+        elif args.p and not args.t:
+
+            arg = True
+
+            create_processes_compress(args.p, procslist, arg)
+            print ">python pzip -d -p n {ficheiros}"
+
+        elif args.t and not args.p:
+
+            print ">python pzip -d -t {ficheiros}"
+
+        else:
+
+            print ">python pzip -d {ficheiros}"
+
+
+def compress(files, filename):
+
+    """
+    Esta opção ativa o modo de compressão do comando pzip, pegando em ficheiros descomprimidos
+    e comprime-os num único ficheiro zip.
+
+    :param files: Lista de ficheiros a serem comprimidos
+    :param filename: Nome do ficheiro zip a ser criado
+    :param dirname: Nome da diretoria onde o ficheiro zip será armazenado
+    :return: Ficheiro zip contendo os ficheiros dados
+    """
+
+    zf = Zip(filename, 'w')
+    zf.write(filename)
+
+    for f in files:
+        zf.write(os.path.join(f))
+
+    zf.close()
+
+
+def decompress(path):
+
+    """
+    Esta opção ativa o modo de descompressão do comando pzip, pegando num ficheiro zip e
+    extraindo os conteúdos para uma dada diretoria.
+
+    :param path: Caminho do(s) ficheiro(s) a ser(em) descomprimido(s)
+    :param dirname: Diretoria para onde se quer extrair o(s) ficheiro(s)
+    :return: Um ou mais ficheiros descomprimidos
+    """
+
+    zf = Zip(path, 'r')
+    zf.extractall()
+    zf.close()
+
+
+def create_processes_compress(num, lis, arg):
+
+    """
+    Cria o espaço de memória partilhada para os processos da função compress()
+    :param num: Número de processos paralelos
+    :param lis: Espaço de memória partilhada dos processos
+    :param arg: Assume valores de True ou False
+    :return: Uma lista que é um espaço de memória dos processos
+    """
+
+
+
+
+def create_processes_decompress(num, lis, arg):
+    """
+    Cria o espaço de memória partilhada para os processos da função decompress()
+    :param num: Número de processos paralelos
+    :param lis: Espaço de memória partilhada dos processos
+    :param arg: Argumentos de cada processo
+    :return: Uma lista que é um espaço de memória dos processos
+    """
+
+    for _ in range(num):
+        proc = Process(target=decompress(), args=(arg,))
+        lis.append(proc)
+
+    return lis
+
+if __name__ == "__main__":
+    main()
