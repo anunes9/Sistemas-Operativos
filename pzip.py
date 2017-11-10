@@ -21,9 +21,7 @@ __author__ = "André Nunes 43304, Miguel Almeida 48314, Tiago Martins 48299"
 completed_files = Value('i', 0)
 queue = Queue()
 sem = Semaphore(1)
-a = Value('b', False)
 queue_size = Value('i', 0)
-n = Value('i', 0)
 
 
 def choose_files():
@@ -71,79 +69,62 @@ def argument_parser():
     return parser.parse_args()
 
 
-def compress(t):
+def compress_decompress(args_t, args_c, args_d):
+    """Function to compress or decompress a file by the filename
+
+    args_t - value of argument t
+    args_c - value of argument c
+    args_d - value of argument_d
+    """
     while queue.qsize() != 0:
         sem.acquire()
-
         lt = queue.get()
-        print 'lt', lt
+
         if len(lt) != 0:
             filename = lt.pop(0)
         else:
             filename = 0
-        print filename
+
         if len(lt) != 0:
             queue.put(lt)
 
-        if not os.path.isfile(filename) and t:
+        if not os.path.isfile(filename) and args_t:
             print "Erro filenotfound"
-            print "aqui t true"
             queue.get()
             break
 
-        elif not t and not os.path.isfile(filename):
-            print 'aqui t false'
+        elif not args_t and not os.path.isfile(filename):
             filename = 0
 
         sem.release()
 
-        if filename != 0:
+        if filename != 0 and args_c:
             with ZipFile(filename + ".zip", 'w') as file_zip:
                 file_zip.write(filename)
-
-                print "DONE", os.getpid()
+                # print "DONE", os.getpid()
                 completed_files.value += 1
 
-
-def decompress(t):
-    while queue.qsize() != 0:
-        sem.acquire()
-
-        lt = queue.get()
-        print 'lt', lt
-        if len(lt) != 0:
-            filename = lt.pop(0)
-        else:
-            filename = 0
-        print filename
-        if len(lt) != 0:
-            queue.put(lt)
-
-        if not os.path.isfile(filename) and t:
-            print "Erro filenotfound"
-            print "aqui t true"
-            queue.get()
-            break
-
-        elif not t and not os.path.isfile(filename):
-            print 'aqui t false'
-            filename = 0
-
-        sem.release()
-
-        if filename != 0:
+        elif filename != 0 and args_d:
             with ZipFile(filename, 'r') as file_zip:
                 file_zip.extract(filename[:-4])
-
-                print "DONE", os.getpid()
+                # print "DONE", os.getpid()
                 completed_files.value += 1
 
 
-def create_default_processes_decompress(n, l_p, t, f):
-    # creates all processes and adds them to the list
-    for _ in xrange(n):
-        p = Process(target=f, args=(t,)).start()
-        l_p.append(p)
+def create_default_processes(n_process, list_process, args_t, func, args_c, args_d):
+    """Function to creates all processes and adds them to the list
+
+    Params:
+    n_process - number of processes to create
+    list_process - list to store the processes
+    t - value of argument t
+    func - name of function to process execute
+    args_c - value of argument c
+    args_d - value of argument_d
+    """
+    for _ in xrange(n_process):
+        p = Process(target=func, args=(args_t, args_c, args_d))
+        list_process.append(p)
 
 
 if __name__ == '__main__':
@@ -157,11 +138,10 @@ if __name__ == '__main__':
     # -d -p n {files}
     # -d -t {files}
     # -d {files}
-    # print "python pzip.py", args, "filesnames", filesnames
 
     args = argument_parser()
     filesnames = []
-    l_p = []
+    list_process = []
 
     if not args.c and not args.d:
         print "Error: choose an option [-c | -d]"
@@ -171,23 +151,18 @@ if __name__ == '__main__':
         else:
             filesnames = args.files
 
-    # fill the shared queue with files
-    # fill_queue_with_files(filesnames)
+    # fill queue with files
     queue.put(filesnames)
-    print queue.qsize()
 
     queue_size.value = len(filesnames)
 
-    if args.c:
-            create_default_processes_decompress(args.p, l_p, args.t, compress)
-    if args.d:
-            create_default_processes_decompress(args.p, l_p, args.t, decompress)
+    create_default_processes(args.p, list_process, args.t, compress_decompress, args.c, args.d)
 
-    for p in l_p:
+    for p in list_process:
         p.start()
 
-    for p in l_p:
+    for p in list_process:
         p.join()
 
-    print "python pzip.py", args, "filesnames", filesnames
+    # print "python pzip.py", args, "filesnames", filesnames
     print 'Compress / Decompress Files:', completed_files.value
