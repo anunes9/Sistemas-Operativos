@@ -33,35 +33,39 @@ n = Value('i', 0)
 def compress(t):
 	checker = 0
 	index = 0
-	while queue.qsize() <= completed_files:
+	while queue.qsize() != 0:
 		sem.acquire()
 
 		lt = queue.get()
 		print 'lt', lt
 
 
-		if len(lt)+1 != completed_files:
-			filename = lt[index]
-			checker = 1
-			queue.put(lt)
+		if len(lt) != 0:
+			filename = lt.pop(0)
+		else:
+			filename = 0
+
+		print filename
+
 		if not os.path.isfile(filename) and t:
 			print "Erro filenotfound"
 			print "aqui t true"
 			queue.get()
 			break
-		elif not t:
+
+		elif not t and not os.path.isfile(filename):
 			print 'aqui t false'
+			filename = 0
 
 
 		sem.release()
-		if checker == 1:
+		if filename != 0:
 			with ZipFile(filename + ".zip", 'w') as file_zip:
 				file_zip.write(filename)
 
 				print "DONE", os.getpid()
 				completed_files.value += 1
-				index += 1
-				checker = 0
+				
 
 def decompress(t):
 
@@ -72,27 +76,33 @@ def decompress(t):
     :param dirname: Diretoria para onde se quer extrair o(s) ficheiro(s)
     :return: Um ou mais ficheiros descomprimidos
     """
-    checker = 0
-    index = 0
-    while queue.qsize() != 0:
+	while queue.qsize() != 0:
 		sem.acquire()
 
 		lt = queue.get()
 		print 'lt', lt
-		filename = lt[index]
+
+
+		if len(lt) != 0:
+			filename = lt.pop(0)
+		else:
+			filename = 0
+
 		print filename
-		if len(lt) != completed_files:
-			checker = 1
-			queue.put(lt)
+
 		if not os.path.isfile(filename) and t:
 			print "Erro filenotfound"
 			print "aqui t true"
 			queue.get()
 			break
-		elif not t:
+
+		elif not t and not os.path.isfile(filename):
 			print 'aqui t false'
+			filename = 0
+
+
 		sem.release()
-		if checker == 1:
+		if filename != 0:
 			zf = ZipFile(filename, 'r')
     		zf.extract()
     		zf.close()
@@ -168,9 +178,7 @@ if __name__ == '__main__':
 			choose_files()
 		else:
 			filesnames = args.files
-
-	# fill the shared queue with files
-	# fill_queue_with_files(filesnames)
+			
 	queue.put(filesnames)
 	print queue.qsize()
 
