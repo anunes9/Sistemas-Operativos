@@ -11,189 +11,158 @@
 #    Tiago Martins 48299    #
 #############################
 
+import os
+from zipfile import ZipFile
+import argparse
+from multiprocessing import Process, Value, Queue, Semaphore
 
 __author__ = "André Nunes 43304, Miguel Almeida 48314, Tiago Martins 48299"
-
-import os
-import sys
-from zipfile import ZipFile 
-import random
-import string
-import argparse
-from multiprocessing import Semaphore, Value, Queue
-from threading import Thread
 
 completed_files = Value('i', 0)
 queue = Queue()
 sem = Semaphore(1)
-a = Value('b', False)
 queue_size = Value('i', 0)
-n = Value('i', 0)
 
-def compress(t):
-	checker = 0
-	index = 0
-	while queue.qsize() != 0:
-		sem.acquire()
-
-		lt = queue.get()
-		print 'lt', lt
-
-
-		if len(lt) != 0:
-			filename = lt.pop(0)
-		else:
-			filename = 0
-
-		print filename
-
-		if not os.path.isfile(filename) and t:
-			print "Erro filenotfound"
-			print "aqui t true"
-			queue.get()
-			break
-
-		elif not t and not os.path.isfile(filename):
-			print 'aqui t false'
-			filename = 0
-
-
-		sem.release()
-		if filename != 0:
-			with ZipFile(filename + ".zip", 'w') as file_zip:
-				file_zip.write(filename)
-
-				print "DONE", os.getpid()
-				completed_files.value += 1
-				
-
-def decompress(t):
-
-    """
-    Esta opção ativa o modo de descompressão do comando pzip, pegando num ficheiro zip e
-    extraindo os conteúdos para uma dada diretoria.
-    :param path: Caminho do(s) ficheiro(s) a ser(em) descomprimido(s)
-    :param dirname: Diretoria para onde se quer extrair o(s) ficheiro(s)
-    :return: Um ou mais ficheiros descomprimidos
-    """
-	while queue.qsize() != 0:
-		sem.acquire()
-
-		lt = queue.get()
-		print 'lt', lt
-
-
-		if len(lt) != 0:
-			filename = lt.pop(0)
-		else:
-			filename = 0
-
-		print filename
-
-		if not os.path.isfile(filename) and t:
-			print "Erro filenotfound"
-			print "aqui t true"
-			queue.get()
-			break
-
-		elif not t and not os.path.isfile(filename):
-			print 'aqui t false'
-			filename = 0
-
-
-		sem.release()
-		if filename != 0:
-			zf = ZipFile(filename, 'r')
-    		zf.extract()
-    		zf.close()
-    		index += 1
-    		
-
-
-    
-def argument_parser():
-	"""
-	Parser to read the arguments from command line
-
-	Argumments avalilable:
-	usage: pzip.py [-h] [-c | -d] [-p {0,1,2,3,4,5,6,7,8,9}] [-t]
-			   [files [files ...]]
-
-	positional arguments:
-		files                       files to Compress/Decompress
-
-	optional arguments:
-		-h, --help                  show this help message and exit
-		-c                          compress files
-		-d                          decompress files
-		-p {0,1,2,3,4,5,6,7,8,9}    number os threads
-		-t                          finish when file not found
-	"""
-	parser = argparse.ArgumentParser()
-
-	group = parser.add_mutually_exclusive_group()
-	group.add_argument("-c", help="compress files", action="store_true")
-	group.add_argument("-d", help="decompress files", action="store_true")
-
-	parser.add_argument("-p", type=int, choices=xrange(1, 10), default=1, help="number os process")
-	parser.add_argument("-t", help="finish when file not found", action="store_true")
-	parser.add_argument("files", nargs='*', help="files to Compress/Decompress")
-
-	return parser.parse_args()
 
 def choose_files():
-	"""
-	Reads the files to compress ou uncompress from stdin
+    """
+    Reads the files to compress ou uncompress from stdin
 
-	Return: a list of name files
-	"""
-	filename = raw_input("Name of file: (--q to exit)\n")
+    Return: a list of name files
+    """
+    filename = raw_input("Name of file: (--q to exit)\n")
 
-	while filename != "--q" or len(filesnames) == 0:
-		if filename != '':
-			filesnames.append(filename)
-		filename = raw_input("Name of file: (--q to exit)\n")
+    while filename != "--q" or len(filesnames) == 0:
+        if filename != '':
+            filesnames.append(filename)
+        filename = raw_input("Name of file: (--q to exit)\n")
 
-def fill_queue_with_files(files):
-	for f in files:
-		files_queue.put(f)
 
-#Create Threads
-def create_threads(n, l_t, v, func):
-	for _ in xrange(n):
-		p = Thread(target=func, args= (v,))
-		l_t.append(p)
-	return l_t
+def argument_parser():
+    """
+    Parser to read the arguments from command line
+
+    Argumments avalilable:
+    usage: pzip.py [-h] [-c | -d] [-p {0,1,2,3,4,5,6,7,8,9}] [-t]
+               [files [files ...]]
+
+    positional arguments:
+        files                       files to Compress/Decompress
+
+    optional arguments:
+        -h, --help                  show this help message and exit
+        -c                          compress files
+        -d                          decompress files
+        -p {0,1,2,3,4,5,6,7,8,9}    number os threads
+        -t                          finish when file not found
+    """
+    parser = argparse.ArgumentParser()
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-c", help="compress files", action="store_true")
+    group.add_argument("-d", help="decompress files", action="store_true")
+
+    parser.add_argument("-p", type=int, choices=xrange(1, 10), default=1, help="number os threads")
+    parser.add_argument("-t", help="finish when file not found", action="store_true")
+    parser.add_argument("files", nargs='*', help="files to Compress/Decompress")
+
+    return parser.parse_args()
+
+
+def compress_decompress(args_t, args_c, args_d):
+    """Function to compress or decompress a file by the filename
+
+    args_t - value of argument t
+    args_c - value of argument c
+    args_d - value of argument_d
+    """
+    while queue.qsize() != 0:
+        sem.acquire()
+        lt = queue.get()
+
+        if len(lt) != 0:
+            filename = lt.pop(0)
+        else:
+            filename = 0
+
+        if len(lt) != 0:
+            queue.put(lt)
+
+        if not os.path.isfile(filename) and args_t:
+            print "Erro filenotfound"
+            queue.get()
+            break
+
+        elif not args_t and not os.path.isfile(filename):
+            filename = 0
+
+        sem.release()
+
+        if filename != 0 and args_c:
+            with ZipFile(filename + ".zip", 'w') as file_zip:
+                file_zip.write(filename)
+                # print "DONE", os.getpid()
+                completed_files.value += 1
+
+        elif filename != 0 and args_d:
+            with ZipFile(filename, 'r') as file_zip:
+                file_zip.extract(filename[:-4])
+                # print "DONE", os.getpid()
+                completed_files.value += 1
+
+
+def create_default_threads(n_thread, list_thread, args_t, func, args_c, args_d):
+    """Function to creates all threads and adds them to the list
+
+    Params:
+    n_thread - number of threads to create
+    list_thread - list to store the threads
+    t - value of argument t
+    func - name of function to thread execute
+    args_c - value of argument c
+    args_d - value of argument_d
+    """
+    for _ in xrange(n_thread):
+        p = Process(target=func, args=(args_t, args_c, args_d))
+        list_thread.append(p)
+
 
 if __name__ == '__main__':
-	
-	args = argument_parser()
-	filesnames = []
-	l_t = []
-	
-	if not args.c and not args.d:
-		print "Error: choose an option [-c | -d]"
-	else:
-		if args.files == []:
-			choose_files()
-		else:
-			filesnames = args.files
-			
-	queue.put(filesnames)
-	print queue.qsize()
 
-	queue_size.value = len(filesnames)
+    # Combinacoes possivies
+    # -c -p n -t {files}
+    # -c -p n {files}
+    # -c -t {files}
+    # -c {files}
+    # -d -p n -t {files}
+    # -d -p n {files}
+    # -d -t {files}
+    # -d {files}
 
-	if args.c:
-			threadlist = create_threads(args.p, l_t, args.t, compress)
-			for s in threadlist:
-				s.start()
-				s.join()
-	if args.d:
-			threadlist = create_threads(args.p, l_t, args.t, decompress)
-			for s in threadlist:
-				s.start()
-				s.join()
+    args = argument_parser()
+    filesnames = []
+    list_thread = []
 
-	print "python pzip_threads.py", args, "filesnames", filesnames
-	print 'Compress / Decompress Files:', completed_files.value
+    if not args.c and not args.d:
+        print "Error: choose an option [-c | -d]"
+    else:
+        if args.files == []:
+            choose_files()
+        else:
+            filesnames = args.files
+
+    # fill queue with files
+    queue.put(filesnames)
+
+    queue_size.value = len(filesnames)
+
+    create_default_threads(args.p, list_thread, args.t, compress_decompress, args.c, args.d)
+
+    for p in list_process:
+        p.start()
+
+    for p in list_process:
+        p.join()
+
+    # print "python pzip_threads.py", args, "filesnames", filesnames
+    print 'Compress / Decompress Files:', completed_files.value
