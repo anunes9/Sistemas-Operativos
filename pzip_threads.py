@@ -92,7 +92,7 @@ def compress_decompress(args_t, args_c, args_d):
         if not os.path.isfile(filename) and args_t:
             print "Erro filenotfound"
             queue.get()
-            break
+            filename = 0
 
         elif not args_t and not os.path.isfile(filename):
             filename = 0
@@ -158,10 +158,10 @@ if __name__ == '__main__':
 
     create_default_threads(args.p, list_thread, args.t, compress_decompress, args.c, args.d)
 
-    for p in list_process:
+    for p in list_thread:
         p.start()
 
-    for p in list_process:
+    for p in list_thread:
         p.join()
 
     # print "python pzip_threads.py", args, "filesnames", filesnames

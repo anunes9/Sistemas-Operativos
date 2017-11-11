@@ -91,7 +91,7 @@ def compress_decompress(args_t, args_c, args_d):
         if not os.path.isfile(filename) and args_t:
             print "Erro filenotfound"
             queue.get()
-            break
+            filename = 0
 
         elif not args_t and not os.path.isfile(filename):
             filename = 0
