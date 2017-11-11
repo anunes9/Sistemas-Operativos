@@ -14,7 +14,8 @@
 import os
 from zipfile import ZipFile
 import argparse
-from multiprocessing import Process, Value, Queue, Semaphore
+from threading import Thread
+from multiprocessing import Value, Queue, Semaphore
 
 __author__ = "André Nunes 43304, Miguel Almeida 48314, Tiago Martins 48299"
 
@@ -123,9 +124,8 @@ def create_default_threads(n_thread, list_thread, args_t, func, args_c, args_d):
     args_d - value of argument_d
     """
     for _ in xrange(n_thread):
-        p = Process(target=func, args=(args_t, args_c, args_d))
-        list_thread.append(p)
-
+        t = Thread(target=func, args=(args_t, args_c, args_d))
+        list_thread.append(t)
 
 if __name__ == '__main__':
 
